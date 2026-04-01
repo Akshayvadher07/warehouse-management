@@ -8,8 +8,13 @@ import { Truck, MapPin, Users, Tags, Calculator, ChevronRight, Scale } from 'luc
 import { DetailedLogisticsSchema, DetailedLogisticsValues } from '@/lib/validations/booking';
 import { createDetailedBooking } from '@/app/actions/billing';
 import { calculateInvoiceTotal } from '@/lib/pricing-engine';
+import { MongoCommodity } from '@/lib/validations/commodity';
 
-export default function BookingForm() {
+interface BookingFormProps {
+  commodities: MongoCommodity[];
+}
+
+export default function BookingForm({ commodities }: BookingFormProps) {
   const [isSubmittingEngine, setIsSubmittingEngine] = useState(false);
 
   const { register, handleSubmit, watch, reset, formState: { errors, isValid } } = useForm<DetailedLogisticsValues>({
@@ -21,12 +26,14 @@ export default function BookingForm() {
   const watchedMT = watch('mt') || 0;
   const watchedDays = watch('storageDays') || 1;
   const watchedDate = watch('date');
+  const watchedCommodity = watch('commodityName');
+  const selectedRate = commodities.find(c => c.name === watchedCommodity)?.baseRate ?? 0;
 
   let previewTotal = 0;
-  if (watchedDate && watchedMT > 0) {
+  if (watchedDate && watchedMT > 0 && selectedRate > 0) {
     try {
       const mockEndDate = new Date(new Date(watchedDate).getTime() + (watchedDays * 86400000)).toISOString().split('T')[0];
-      const math = calculateInvoiceTotal(watchedDate, mockEndDate, watchedMT, 12.50); // Fallback 12.50 base rate preview
+      const math = calculateInvoiceTotal(watchedDate, mockEndDate, watchedMT, selectedRate);
       previewTotal = math.totalAmount;
     } catch { } // Fails silently mid-typing
   }
@@ -122,7 +129,14 @@ export default function BookingForm() {
             <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
               <div className="col-span-2">
                 <label className="block text-xs font-bold text-slate-600 mb-1">Commodity Name *</label>
-                <input {...register('commodityName')} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="E.g. WHEAT" />
+                <select {...register('commodityName')} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="">Select Commodity...</option>
+                  {commodities.map(c => (
+                    <option key={c._id} value={c.name}>
+                      {c.name} — ₹{c.baseRate}/{c.unit}
+                    </option>
+                  ))}
+                </select>
                 {errors.commodityName && <p className="text-red-500 text-[10px] mt-1">{errors.commodityName.message}</p>}
               </div>
               <div className="col-span-1">

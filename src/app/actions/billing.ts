@@ -24,16 +24,16 @@ export async function createDetailedBooking(formData: DetailedLogisticsValues) {
     // Safely extract the new sequence number
     const sNo = counterDoc?.seq || counterDoc?.value?.seq || 1;
 
-    // 2. PRICING ENGINE LOOKUP (Maintain backwards compatibility for Billing)
-    const masterConfig = await db.collection('warehouse_config').findOne({});
-    let ratePerTon = 12.50; 
-    
-    if (masterConfig && masterConfig.commodities) {
-      const targetCommodity = masterConfig.commodities.find(
-        (c: any) => c.name.toUpperCase() === formData.commodityName.toUpperCase()
-      );
-      if (targetCommodity) ratePerTon = targetCommodity.ratePerSqFt;
+    // 2. PRICING ENGINE LOOKUP (From commodities collection - commodity-specific rates)
+    const commodityDoc = await db.collection('commodities').findOne({
+      name: formData.commodityName.toUpperCase()
+    });
+
+    if (!commodityDoc || !commodityDoc.baseRate) {
+      return { success: false, message: `Rate not found for commodity "${formData.commodityName}". Please select a valid commodity.` };
     }
+
+    const ratePerTon = commodityDoc.baseRate;
 
     // The new deep ledger uses exactly 1 Date tracking field, but Billing requires `startDate` and `endDate`.
     // We construct a mock endDate dynamically based on the requested storage duration for billing purposes.

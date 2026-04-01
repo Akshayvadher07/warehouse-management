@@ -1,7 +1,9 @@
 import BookingForm from '@/components/features/bookings/booking-form';
 import { Toaster } from 'react-hot-toast';
+import { fetchCommodities } from '@/app/actions/commodities';
 
-export default function BookingsPage() {
+export default async function BookingsPage() {
+  const commodities = await fetchCommodities();
   return (
     <div className="w-full">
       {/* Toast provider so notifications work on this page */}
@@ -16,7 +18,7 @@ export default function BookingsPage() {
         </p>
       </div>
 
-      <BookingForm />
+      <BookingForm commodities={commodities} />
     </div>
   );
 }
