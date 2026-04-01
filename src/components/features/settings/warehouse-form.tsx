@@ -92,7 +92,7 @@ export default function WarehouseConfigForm({ initialData }: { initialData?: Par
                   <input {...register(`commodities.${index}.name`)} className="w-full rounded border-slate-300 p-2 text-sm focus:ring-blue-500" placeholder="Category Name" />
                 </div>
                 <div className="w-32">
-                  <label className="block text-xs text-slate-500 font-bold uppercase mb-1">Rate / SqFt</label>
+                <label className="block text-xs text-slate-500 font-bold uppercase mb-1">Rate / SqFt</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-slate-400">$</span>
                     <input type="number" step="0.01" {...register(`commodities.${index}.ratePerSqFt`)} className="w-full rounded border-slate-300 pl-7 p-2 text-sm focus:ring-blue-500" />
