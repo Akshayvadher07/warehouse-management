@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { InvoiceDocument } from './invoice-pdf';
-import { updateInvoiceStatus } from '@/app/actions/invoices'; // New Dynamic Server Action
+import { updateInvoiceStatus } from '@/app/actions/invoices';
 import { FileDown, Package, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatCurrency } from '@/lib/utils/currency';
 
 const PDFDownloadLink = dynamic(
   () => import('@react-pdf/renderer').then((mod) => mod.PDFDownloadLink),
@@ -77,8 +78,8 @@ export default function InvoiceTable({ initialInvoices }: { initialInvoices: any
                     <Package className="w-3 h-3 mr-1" /> {inv.commodity || 'General'}
                   </div>
                 </td>
-                <td className="px-6 py-4 font-medium">
-                  ${inv.totalAmount?.toFixed(2) || inv.amount?.toFixed(2) || '0.00'}
+                <td className="px-6 py-4 font-medium text-emerald-700">
+                  {formatCurrency(inv.totalAmount ?? inv.amount ?? 0)}
                 </td>
                 
                 {/* 💥 THE NEW STATUS BADGE DROPDOWN 💥 */}

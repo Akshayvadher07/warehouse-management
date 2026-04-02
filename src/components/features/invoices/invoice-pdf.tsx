@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { pdfCurrency } from '@/lib/utils/currency';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontFamily: 'Helvetica', fontSize: 12, color: '#334155' },
@@ -24,7 +25,7 @@ export const InvoiceDocument = ({ invoice }: { invoice: any }) => {
   const cargoName = invoice.commodity || invoice.zone || 'General Freight';
   const duration = invoice.durationDays || 1;
   const rate = invoice.rateApplied || 0;
-  
+
   // Backwards compatibility with old invoices that only had `amount`
   const baseSubtotal = invoice.subtotal || invoice.amount || 0;
   const taxes = invoice.taxAmount || 0;
@@ -33,19 +34,19 @@ export const InvoiceDocument = ({ invoice }: { invoice: any }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        
+
         {/* Header Section */}
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>WMS Pro Logistics</Text>
-            <Text style={styles.companyDetails}>123 Warehouse Lane, Industry City, 90210</Text>
+            <Text style={styles.companyDetails}>123 Warehouse Lane, Industry City</Text>
             <Text style={styles.companyDetails}>billing@wmspro.com | 1-800-STORAGE</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={{ fontSize: 20, color: '#3b82f6' }}>INVOICE</Text>
             <Text>#{invoice.id ? invoice.id.substring(0, 8).toUpperCase() : 'UNKNOWN'}</Text>
             <Text style={{ marginTop: 8 }}>
-              Date: {invoice.generatedAt ? new Date(invoice.generatedAt).toLocaleDateString() : new Date().toLocaleDateString()}
+              Date: {invoice.generatedAt ? new Date(invoice.generatedAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
             </Text>
             <Text>Status: {invoice.status || 'UNKNOWN'}</Text>
           </View>
@@ -70,8 +71,9 @@ export const InvoiceDocument = ({ invoice }: { invoice: any }) => {
           <View style={styles.tableRow}>
             <Text style={styles.tableCol}>Logistics: {cargoName}</Text>
             <Text style={styles.tableCol}>{duration} Days</Text>
-            <Text style={styles.tableCol}>${rate.toFixed(2)}/Unit</Text>
-            <Text style={styles.tableCol}>${baseSubtotal.toFixed(2)}</Text>
+            {/* pdfCurrency uses "Rs." prefix — safe with Helvetica's limited Unicode support */}
+            <Text style={styles.tableCol}>{pdfCurrency(rate)}/MT</Text>
+            <Text style={styles.tableCol}>{pdfCurrency(baseSubtotal)}</Text>
           </View>
         </View>
 
@@ -79,15 +81,15 @@ export const InvoiceDocument = ({ invoice }: { invoice: any }) => {
         <View style={styles.totalsContainer}>
           <View style={styles.totalRow}>
             <Text>Subtotal:</Text>
-            <Text>${baseSubtotal.toFixed(2)}</Text>
+            <Text>{pdfCurrency(baseSubtotal)}</Text>
           </View>
           <View style={styles.totalRow}>
             <Text>Tax (18% GST):</Text>
-            <Text>${taxes.toFixed(2)}</Text>
+            <Text>{pdfCurrency(taxes)}</Text>
           </View>
           <View style={[styles.totalRow, styles.grandTotal]}>
             <Text>Total Due:</Text>
-            <Text>${grandTotal.toFixed(2)}</Text>
+            <Text>{pdfCurrency(grandTotal)}</Text>
           </View>
         </View>
 

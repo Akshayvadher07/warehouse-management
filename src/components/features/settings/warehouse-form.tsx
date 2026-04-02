@@ -12,7 +12,8 @@ export default function WarehouseConfigForm({ initialData }: { initialData?: Par
 
   // Setup Form
   const { register, control, handleSubmit, formState: { errors } } = useForm<WarehouseConfigValues>({
-    resolver: zodResolver(WarehouseConfigSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(WarehouseConfigSchema) as any,
     defaultValues: initialData || {
       warehouseName: 'Main Hub',
       address: '',

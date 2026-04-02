@@ -6,7 +6,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 
-// 1. Zod Schema for dynamic arrays and strict typing
+// Zod v4: z.coerce.number() correctly resolves to `number` — no preprocess needed.
 export const CommoditySchema = z.object({
   name: z.string().min(2, 'Commodity name is required'),
   ratePerSqFt: z.coerce.number().positive('Rate must be greater than 0'),
