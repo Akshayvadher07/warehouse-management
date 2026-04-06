@@ -30,6 +30,46 @@ export interface ILogisticsBooking {
   createdAt: Date;
 }
 
+// Full 18+ Field Logistics Ledger Entity
+export interface IDetailedBooking {
+  _id?: ObjectId;
+  sNo: number;
+  userId: string | ObjectId;
+  userEmail?: string;
+  
+  // 1. Flow & Location
+  direction: 'INWARD' | 'OUTWARD';
+  date: string; // ISO Date String
+  warehouseName: string;
+  location: string;
+
+  // 2. Stakeholders
+  clientName: string;
+  clientLocation?: string;
+  suppliers?: string;
+
+  // 3. Tracking Specs
+  commodityName: string;
+  cadNo?: string;
+  stackNo?: string;
+  lotNo?: string;
+  doNumber?: string;
+  cdfNo?: string;
+
+  // 4. Gate & Quantities
+  gatePass: string;
+  pass?: string;
+  bags: number;
+  palaBags: number;
+  mt: number;
+
+  // 5. Billing Configuration
+  storageDays: number;
+  
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  createdAt: Date;
+}
+
 export interface IInvoice {
   _id?: ObjectId;
   bookingId: ObjectId;

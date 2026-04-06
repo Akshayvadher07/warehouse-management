@@ -5,7 +5,7 @@ export const DetailedLogisticsSchema = z.object({
   // 1. Flow & Location
   direction: z.enum(['INWARD', 'OUTWARD'], { error: 'Please select flow direction' }),
   date: z.string().min(1, 'Date is required'),
-  warehouseName: z.string().min(2, 'Warehouse Name is required'),
+  warehouseName: z.string().min(1, "Please select a warehouse"),
   location: z.string().min(2, 'Warehouse Location is required'),
 
   // 2. Stakeholders

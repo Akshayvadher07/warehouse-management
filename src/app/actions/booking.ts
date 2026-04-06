@@ -2,7 +2,7 @@
 
 import { getDb } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { calculateInvoiceTotal } from '@/lib/pricing-engine';
 import { LogisticsBookingValues } from './booking'; // Import the new strict Zod types!
 

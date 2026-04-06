@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Box, CalendarCheck, TrendingUp } from 'lucide-react';
 import BookingChart from '@/components/features/dashboard/booking-chart';

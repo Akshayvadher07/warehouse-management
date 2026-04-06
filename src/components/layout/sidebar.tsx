@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, CalendarCheck, FileText, Menu, X, Box } from 'lucide-react';
+import { Home, CalendarCheck, FileText, Menu, X, Box, BarChart2 } from 'lucide-react';
 import { useState } from 'react';
 import LogoutButton from '@/components/features/auth/logout-button';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Book Warehouse', href: '/dashboard/bookings', icon: CalendarCheck },
+  { name: 'Logistics Report', href: '/dashboard/reports', icon: BarChart2 },
   { name: 'Invoices', href: '/dashboard/invoices', icon: FileText },
 ];
 

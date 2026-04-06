@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-hot-toast';
 import { Truck, MapPin, Users, Tags, Calculator, ChevronRight, Scale } from 'lucide-react';
@@ -10,6 +10,7 @@ import { createDetailedBooking } from '@/app/actions/billing';
 import { calculateRent } from '@/lib/pricing-engine';
 import { MongoCommodity } from '@/lib/validations/commodity';
 import { formatCurrency } from '@/lib/utils/currency';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // ── Static fallback list ──────────────────────────────────────────────────────
 // Used when the Commodity Master DB collection is still empty or unreachable.
@@ -42,7 +43,7 @@ export default function BookingForm({ commodities }: BookingFormProps) {
     ...STATIC_COMMODITIES.filter(s => !dbNames.has(s.name)),
   ];
 
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<DetailedLogisticsValues>({
+  const { register, handleSubmit, watch, reset, setValue, control, formState: { errors } } = useForm<DetailedLogisticsValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(DetailedLogisticsSchema) as any,
     mode: 'onTouched',
@@ -166,7 +167,24 @@ export default function BookingForm({ commodities }: BookingFormProps) {
               </div>
               <div>
                 <label htmlFor="warehouseName" className="block text-xs font-bold text-slate-600 mb-1">Warehouse Name *</label>
-                <input id="warehouseName" {...register('warehouseName')} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Central Depot" />
+                <Controller
+                  name="warehouseName"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <SelectTrigger id="warehouseName" className="w-full bg-slate-50 border-slate-300 focus:ring-2 focus:ring-indigo-500">
+                        <SelectValue placeholder="Choose Warehouse" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Warehouse 1">Warehouse 1</SelectItem>
+                        <SelectItem value="Warehouse 2">Warehouse 2</SelectItem>
+                        <SelectItem value="Warehouse 3">Warehouse 3</SelectItem>
+                        <SelectItem value="Warehouse 4">Warehouse 4</SelectItem>
+                        <SelectItem value="Warehouse 5">Warehouse 5</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.warehouseName && <p className="text-red-500 text-[10px] mt-1">{errors.warehouseName.message}</p>}
               </div>
               <div>
