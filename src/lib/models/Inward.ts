@@ -1,0 +1,31 @@
+import mongoose, { Schema, Document, Model } from 'mongoose';
+
+export interface IInward extends Document {
+  clientId: mongoose.Types.ObjectId;
+  commodityId: mongoose.Types.ObjectId;
+  warehouseId: mongoose.Types.ObjectId;
+  quantityMT: number;
+  bagsCount: number;
+  date: Date;
+  outwardDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const InwardSchema: Schema = new Schema(
+  {
+    clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
+    commodityId: { type: Schema.Types.ObjectId, ref: 'Commodity', required: true },
+    warehouseId: { type: Schema.Types.ObjectId, ref: 'Warehouse', required: true },
+    quantityMT: { type: Number, required: true, min: 0 },
+    bagsCount: { type: Number, required: true, min: 0 },
+    date: { type: Date, default: Date.now },
+    outwardDate: { type: Date, required: true },
+  },
+  { timestamps: true }
+);
+
+const Inward: Model<IInward> =
+  mongoose.models.Inward || mongoose.model<IInward>('Inward', InwardSchema);
+
+export default Inward;

@@ -45,10 +45,10 @@ export default function RevenueDistributionSocketClient() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const firstDataFetchAttemptedRef = useRef(false);
 
   const fetchRevenueDistribution = async () => {
     setLoading(true);
-    setErrorMessage(null);
 
     try {
       const response = await fetch(`${REVENUE_API_BASE}/api/revenue-distribution`);
@@ -63,8 +63,12 @@ export default function RevenueDistributionSocketClient() {
 
       setSummary(data.summary);
       setRecords(data.records);
+      setErrorMessage(null); // Clear errors on successful fetch
+      firstDataFetchAttemptedRef.current = true;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to fetch revenue data');
+      firstDataFetchAttemptedRef.current = true;
+      const message = error instanceof Error ? error.message : 'Unable to fetch revenue data';
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -74,7 +78,10 @@ export default function RevenueDistributionSocketClient() {
     fetchRevenueDistribution();
 
     const socket = io(REVENUE_API_BASE, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
     });
 
@@ -95,8 +102,12 @@ export default function RevenueDistributionSocketClient() {
     });
 
     socket.on('connect_error', (error) => {
-      setErrorMessage('Real-time connection failed. Retrying...');
-      console.error('Socket connect error:', error);
+      // Suppress console spam for transient connection errors
+      // Only show error in UI if initial data fetch also failed
+      if (firstDataFetchAttemptedRef.current && records.length === 0) {
+        setErrorMessage('Real-time updates unavailable. Retrying...');
+      }
+      // Silently track connection state without console errors
     });
 
     return () => {
@@ -218,9 +229,12 @@ export default function RevenueDistributionSocketClient() {
         </div>
       </section>
 
-      {errorMessage ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {errorMessage}
+      {errorMessage && records.length === 0 ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
+          <p className="font-medium text-red-900">{errorMessage}</p>
+          <p className="mt-1 text-xs text-red-700">
+            Make sure the revenue server is running: <code className="bg-red-100 px-2 py-1">npm run serve:revenue</code>
+          </p>
         </div>
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   LineChart,
   Line,
@@ -21,6 +22,14 @@ interface BookingTrendChartProps {
 }
 
 export default function BookingTrendChart({ data }: BookingTrendChartProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return <div className="h-[420px] w-full bg-slate-50 animate-pulse rounded-xl" />;
+
   return (
     <div className="h-[420px] w-full">
       <ResponsiveContainer width="100%" height="100%">

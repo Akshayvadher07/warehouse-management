@@ -52,7 +52,95 @@ async function updateWarehouseStock(db: any, warehouseName: string, commodityNam
     { upsert: true, returnDocument: 'after' }
   );
 
-  return result.value;
+  return {
+    warehouseName,
+    commodityName,
+    quantity: newQuantity,
+    status: stockStatus,
+    lastUpdated: new Date(),
+  };
+}
+
+/**
+ * PATCH /api/bookings/[bookingId]
+ * Update booking details (for edit mode)
+ */
+export async function PATCH(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+    const url = new URL(req.url);
+    const bookingId = url.pathname.split('/').pop();
+
+    if (!bookingId || bookingId === 'route.ts') {
+      return NextResponse.json({ success: false, message: 'Booking ID is required' }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const db = await getDb();
+
+    const updateFields: any = {};
+
+    // Only allow specific fields to be updated
+    const allowedFields = [
+      'date',
+      'warehouseName',
+      'location',
+      'clientName',
+      'clientLocation',
+      'suppliers',
+      'commodityName',
+      'cadNo',
+      'stackNo',
+      'lotNo',
+      'doNumber',
+      'cdfNo',
+      'gatePass',
+      'pass',
+      'bags',
+      'palaBags',
+      'mt',
+      'storageDays',
+    ];
+
+    allowedFields.forEach((field) => {
+      if (field in body) {
+        updateFields[field] = body[field];
+      }
+    });
+
+    if (Object.keys(updateFields).length === 0) {
+      return NextResponse.json({ success: false, message: 'No valid fields to update' }, { status: 400 });
+    }
+
+    const result = await db.collection('bookings').findOneAndUpdate(
+      { _id: new ObjectId(bookingId) },
+      {
+        $set: {
+          ...updateFields,
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (!result.value) {
+      return NextResponse.json({ success: false, message: 'Booking not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Booking updated successfully',
+        booking: result.value,
+      },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error('PATCH /api/bookings error:', error);
+    return NextResponse.json({ success: false, message: error.message || 'Server error' }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {

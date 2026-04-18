@@ -2,7 +2,7 @@ import LogisticsReportClient from '@/components/features/reports/logistics-repor
 import { getFilteredBookings, getFilterOptions } from '@/app/actions/reports';
 
 interface Props {
-  searchParams: { [key: string]: string | undefined };
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }
 
 export default async function ReportDataWrapper({ searchParams }: Props) {

@@ -28,8 +28,62 @@ export interface IWarehouse {
   updatedAt: Date;
 }
 
+/**
+ * ClientAccount: Represents a unique ledger account for a client
+ * Groups multiple bookings, commodities, and transactions under one account ID
+ * Prevents name collisions by using unique bookingId as the account identifier
+ */
+export interface IClientAccount {
+  _id?: ObjectId;
+  bookingId: string; // Unique identifier (UUID or custom ID) - PRIMARY KEY for ledger grouping
+  clientName: string;
+  clientLocation?: string;
+  contactInfo?: {
+    email?: string;
+    phone?: string;
+    contactPerson?: string;
+  };
+  accountStatus: 'ACTIVE' | 'INACTIVE' | 'CLOSED';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Transaction: Individual warehouse transaction linked to a ClientAccount
+ * All transactions under the same accountId roll up into one consolidated ledger
+ */
+export interface ITransaction {
+  _id?: ObjectId;
+  accountId: string; // Reference to IClientAccount.bookingId
+  date: string; // ISO date string (YYYY-MM-DD)
+  direction: 'INWARD' | 'OUTWARD';
+  commodityName: string;
+  quantityMT: number;
+  gatePass: string;
+  warehouseName?: string;
+  location?: string;
+  createdAt: Date;
+}
+
+/**
+ * Payment: Payment record linked to a ClientAccount
+ * All payments under the same accountId contribute to the account balance
+ */
+export interface IPayment {
+  _id?: ObjectId;
+  accountId: string; // Reference to IClientAccount.bookingId
+  date: string; // ISO date string (YYYY-MM-DD)
+  amount: number;
+  paymentMethod?: 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'NEFT' | 'RTGS';
+  referenceNumber?: string;
+  remarks?: string;
+  recordedBy?: string;
+  createdAt: Date;
+}
+
 export interface ILogisticsBooking {
   _id?: ObjectId;
+  accountId?: string; // NEW: Reference to IClientAccount.bookingId for ledger grouping
   userId: ObjectId;
   customerName: string;      
   mobileNumber: string;      
@@ -44,7 +98,6 @@ export interface ILogisticsBooking {
   // 1. Flow & Location
   direction: 'INWARD' | 'OUTWARD';
   date: string; // ISO Date String
-  warehouseName: string;
   location: string;
 
   // 2. Stakeholders
@@ -94,7 +147,7 @@ export interface IInvoice {
   finalTotal?: number; // Final Settlement sum
   paidAmount?: number; // Amount already paid
   pendingAmount?: number; // Amount still due (calculated)
-  status: 'UNPAID' | 'PAID' | 'PENDING_SETTLEMENT' | 'PARTIALLY_PAID';
+  status: 'OPEN' | 'UNPAID' | 'PAID' | 'PENDING_SETTLEMENT' | 'PARTIALLY_PAID';
   invoiceType?: 'STANDARD_STORAGE' | 'FINAL_WITHDRAWAL';
   generatedAt: Date;
   createdBy?: string;

@@ -8,11 +8,13 @@ import { toast } from 'react-hot-toast';
 import { Truck, MapPin, Users, Tags, Calculator, ChevronRight, Scale, Lock } from 'lucide-react';
 import { DetailedLogisticsSchema, DetailedLogisticsValues } from '@/lib/validations/booking';
 import { calculateRent } from '@/lib/pricing-engine';
+import { useWarehouse } from '@/contexts/WarehouseContext';
 import { MongoCommodity } from '@/lib/validations/commodity';
 import { differenceInDays } from 'date-fns';
 import { formatCurrency } from '@/lib/utils/currency';
 import { formatWeight } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createDetailedBooking } from '@/app/actions/billing';
 
 // ── Static fallback list ──────────────────────────────────────────────────────
 // Used when the Commodity Master DB collection is still empty or unreachable.
@@ -66,6 +68,7 @@ export default function BookingForm({ commodities }: BookingFormProps) {
   });
 
   const router = useRouter();
+  const { clients } = useWarehouse();
   const [direction, setDirection] = useState<'INWARD' | 'OUTWARD'>('INWARD');
   const [stockError, setStockError] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
@@ -184,26 +187,38 @@ export default function BookingForm({ commodities }: BookingFormProps) {
       return;
     }
 
-    console.log('[Form] Data validated — sending to server:', data); // Debug: inspect payload
+    // 🔍 DEBUG: Verify the total amount matches UI preview before submission
+    const debugRent = calculateRent(watchedMT, selectedRate, watchedDate, 
+      watchedDateOutward || new Date(new Date(watchedDate).getTime() + watchedDays * 86400000).toISOString().slice(0, 10)
+    );
+    console.log('[Form] Pre-Submission Verification:');
+    console.log('  Expected Total (UI): ' + formatCurrency(rentPreview?.totalAmount || 0));
+    console.log('  Calculated Total: ' + formatCurrency(debugRent.totalAmount));
+    console.log('  Match: ' + (rentPreview?.totalAmount === debugRent.totalAmount ? '✓ YES' : '✗ NO'));
+    console.log('  Full Breakdown:', debugRent);
+    
+    console.log('[Form] Form data being submitted:', data);
     try {
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-      if (response.ok && result.success) {
-        toast.success(`✓ Booking saved successfully!`);
-        reset({ storageDays: 1, bags: 0, palaBags: 0, direction: 'INWARD' });
-        setStockError(null);
-        setAvailableStock(null);
-        router.refresh();
-      } else {
+      // Call the server action that inserts both booking AND generates invoice
+      const result = await createDetailedBooking(data);
+      
+      if (!result.success) {
         toast.error(result.message || 'Server rejected the entry.');
+        isSubmittingRef.current = false;
+        setIsSubmittingEngine(false);
+        return;
       }
+
+      // Success! Show confirmation with invoice info
+      toast.success(`✓ Booking S.No #${result.serialNo} saved! Invoice created.`);
+      console.log(`[Form] Invoice generated: ${result.invoiceId}`);
+      
+      reset({ storageDays: 1, bags: 0, palaBags: 0, direction: 'INWARD' });
+      setStockError(null);
+      setAvailableStock(null);
+      
+      // Refresh to show updated bookings and allow viewing the new invoice
+      router.refresh();
     } catch (error: any) {
       toast.error(error.message || 'Network error. Please retry.');
     } finally {
@@ -277,7 +292,7 @@ export default function BookingForm({ commodities }: BookingFormProps) {
                   name="warehouseName"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select value={field.value} onValueChange={field.onChange} onBlur={field.onBlur}>
                       <SelectTrigger id="warehouseName" className="w-full bg-slate-50 border-slate-300 focus:ring-2 focus:ring-indigo-500">
                         <SelectValue placeholder="Choose Warehouse" />
                       </SelectTrigger>
@@ -309,7 +324,24 @@ export default function BookingForm({ commodities }: BookingFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
                 <label htmlFor="clientName" className="block text-xs font-bold text-slate-600 mb-1">CLIENT NAME *</label>
-                <input id="clientName" {...register('clientName')} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Acme Logistics Corp" />
+                <Controller
+                  name="clientName"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange} onBlur={field.onBlur}>
+                      <SelectTrigger id="clientName" className="w-full bg-slate-50 border-slate-300 focus:ring-2 focus:ring-indigo-500">
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map(client => (
+                          <SelectItem key={client.id} value={client.name}>
+                            {client.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.clientName && <p className="text-red-500 text-[10px] mt-1">{errors.clientName.message}</p>}
               </div>
               <div>
@@ -324,7 +356,7 @@ export default function BookingForm({ commodities }: BookingFormProps) {
           </div>
 
           {/* === CARD 3: Tracking Specs === */}
-          <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-6 border-l-4 border-l-blue-500">
+          <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-6 ">
             <h3 className="text-md font-semibold text-slate-800 flex items-center mb-4 border-b pb-2">
               <Tags className="w-4 h-4 mr-2" /> 3. Deep Tracking & Specs
             </h3>
@@ -383,7 +415,7 @@ export default function BookingForm({ commodities }: BookingFormProps) {
           </div>
 
           {/* === CARD 4: Cargo Quants & Math === */}
-          <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-6 border-l-4 border-l-emerald-500">
+          <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-6 ">
             <h3 className="text-md font-semibold text-slate-800 flex items-center mb-4 border-b pb-2">
               <Scale className="w-4 h-4 mr-2" /> 4. Scale Quantities
             </h3>
@@ -459,9 +491,11 @@ export default function BookingForm({ commodities }: BookingFormProps) {
           {direction === 'INWARD' && watchedMT > 0 && selectedRate > 0 && watchedDays > 0 && (
             <div className="mt-8 rounded-2xl bg-blue-50 border border-blue-200 p-8 shadow-sm">
               <div className="text-center">
-                <p className="text-sm font-medium text-blue-700 uppercase tracking-wide mb-2">Estimated Storage Charges</p>
-                <p className="text-4xl font-bold text-blue-900">{formatCurrency(watchedMT * selectedRate * watchedDays)}</p>
-                <p className="text-xs text-blue-600 mt-2">Based on {watchedMT} MT × ₹{selectedRate}/MT × {watchedDays} days</p>
+                <p className="text-sm font-medium text-blue-700 uppercase tracking-wide mb-2">Estimated Storage Charges (Pro-Rata)</p>
+                <p className="text-4xl font-bold text-blue-900">{formatCurrency(rentPreview?.totalAmount || 0)}</p>
+                <p className="text-xs text-blue-600 mt-2">
+                  {rentPreview?.totalDays} days × {watchedMT} MT × ₹{selectedRate}/MT/month ÷ 30 = {formatCurrency(rentPreview?.dailyRate || 0)}/day
+                </p>
               </div>
             </div>
           )}
@@ -498,7 +532,7 @@ export default function BookingForm({ commodities }: BookingFormProps) {
                 disabled={isSubmittingEngine || isCheckingStock}
                 className={`rounded-xl shadow-lg transition-all flex items-center justify-center py-4 px-10 font-bold ${isSubmittingEngine || isCheckingStock ? 'bg-slate-300 text-slate-700 cursor-not-allowed opacity-70 pointer-events-none' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
               >
-                {isSubmittingEngine ? 'Locking Ledger...' : 'Insert Row & Generate Invoice'}
+                {isSubmittingEngine ? 'Generating Invoice...' : 'Insert Row & Generate Invoice'}
                 {isSubmittingEngine ? (
                   <Lock className="w-5 h-5 ml-2" />
                 ) : (

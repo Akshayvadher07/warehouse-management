@@ -6,6 +6,57 @@ import { authOptions } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { calculateLedger, Transaction, Payment, LedgerSummary } from '@/lib/ledger-engine';
+import type { ILogisticsBooking } from '@/types/schemas';
+
+/**
+ * Notify revenue distribution system with retry logic and timeout
+ */
+async function notifyRevenueSystem(
+  revenueApiUrl: string,
+  payload: object,
+  maxRetries: number = 3
+): Promise<boolean> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const response = await fetch(`${revenueApiUrl}/api/payment-success`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        console.log('✓ Revenue notification sent successfully');
+        return true;
+      }
+
+      const errorText = await response.text();
+      console.warn(`Revenue API returned ${response.status}: ${errorText}`);
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff: 1s, 2s, 4s
+        console.warn(
+          `Revenue notification attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms: ${lastError.message}`
+        );
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  console.error(`✗ Revenue notification failed after ${maxRetries} attempts:`, lastError?.message);
+  return false;
+}
 
 export async function fetchUserInvoices() {
   const session = await getServerSession(authOptions);
@@ -35,6 +86,101 @@ export async function fetchUserInvoices() {
     status: inv.status,
     generatedAt: inv.generatedAt ? inv.generatedAt.toISOString() : new Date().toISOString()
   }));
+}
+
+export interface UnifiedInvoiceData {
+  clientId: string;
+  clientName: string;
+  bookings: ILogisticsBooking[];
+  transactions: Transaction[];
+  payments: Payment[];
+  ledgerSummary: LedgerSummary;
+  totalBalance: number;
+}
+
+export async function getUnifiedFinancials(
+  clientId: string
+): Promise<{ success: boolean; data?: UnifiedInvoiceData; message?: string }> {
+  try {
+    const trimmedId = clientId?.trim();
+    if (!trimmedId) {
+      return { success: false, message: 'Client ID is required' };
+    }
+
+    const db = await getDb();
+
+    const [bookings, transactionDocs, paymentDocs] = await Promise.all([
+      db.collection('bookings')
+        .find({ accountId: trimmedId })
+        .sort({ date: 1 })
+        .toArray(),
+      db.collection('transactions')
+        .find({ accountId: trimmedId })
+        .sort({ date: 1 })
+        .toArray(),
+      db.collection('payments')
+        .find({ accountId: trimmedId })
+        .sort({ date: 1 })
+        .toArray(),
+    ]);
+
+    const clientName =
+      bookings[0]?.clientName || transactionDocs[0]?.clientName || 'Unknown Client';
+
+    const bookingTransactions: Transaction[] = bookings.map((booking: any) => ({
+      _id: booking._id?.toString() || '',
+      date: booking.date,
+      direction: booking.direction,
+      mt: booking.mt,
+      clientName: booking.clientName,
+      commodityName: booking.commodityName,
+      gatePass: booking.gatePass,
+    }));
+
+    const additionalTransactions: Transaction[] = transactionDocs.map((txn: any) => ({
+      _id: txn._id?.toString() || '',
+      date: txn.date,
+      direction: txn.direction,
+      mt: txn.quantityMT,
+      clientName: txn.clientName || clientName,
+      commodityName: txn.commodityName,
+      gatePass: txn.gatePass || '',
+    }));
+
+    const transactions: Transaction[] = Array.from(
+      new Map(
+        [...bookingTransactions, ...additionalTransactions].map((txn) => [txn._id, txn])
+      ).values()
+    ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const payments: Payment[] = paymentDocs.map((payment: any) => ({
+      _id: payment._id?.toString() || '',
+      date: payment.date,
+      amount: payment.amount,
+      clientName: payment.clientName || clientName,
+    }));
+
+    const ledgerSummary = calculateLedger(transactions, payments, clientName);
+
+    return {
+      success: true,
+      data: {
+        clientId: trimmedId,
+        clientName,
+        bookings,
+        transactions,
+        payments,
+        ledgerSummary,
+        totalBalance: ledgerSummary.balance,
+      },
+    };
+  } catch (error: any) {
+    console.error('getUnifiedFinancials error:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to load unified invoice data',
+    };
+  }
 }
 
 // NEW: Dynamically update Invoice Status (Pending <-> Paid)
@@ -143,25 +289,17 @@ export async function updateInvoicePayment(invoiceId: string, additionalPayment:
             'Warehouse 5': 'WH5',
           };
 
-          const warehouseId = warehouseNameToId[booking.warehouseName] || 'WH1'; // Default to WH1 if not found
-
+          const warehouseId = warehouseNameToId[booking.warehouseName] || 'WH1';
           const revenueApiUrl = process.env.REVENUE_API_BASE || 'http://localhost:4000';
-          const response = await fetch(`${revenueApiUrl}/api/payment-success`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              booking_id: booking._id.toString(),
-              warehouse_id: warehouseId,
-              total_amount: totalAmount / 100, // Convert back to rupees
-            }),
+
+          const notified = await notifyRevenueSystem(revenueApiUrl, {
+            booking_id: booking._id.toString(),
+            warehouse_id: warehouseId,
+            total_amount: totalAmount / 100, // Convert back to rupees
           });
 
-          if (!response.ok) {
-            console.error('Failed to notify revenue distribution system:', await response.text());
-          } else {
-            console.log('Successfully notified revenue distribution system for booking:', booking._id.toString());
+          if (!notified) {
+            console.warn('Revenue system notification will be retried on next payment update');
           }
         } else {
           console.error('Booking not found for invoice:', invoiceId);

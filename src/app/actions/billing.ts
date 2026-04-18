@@ -87,6 +87,7 @@ export async function createDetailedBooking(formData: DetailedLogisticsValues) {
       `[billing.ts] Pro-Rata: ${rent.totalDays}d × ${data.mt}MT × ₹${ratePerTon}/mo = ` +
       `Storage ₹${rent.storageRent} = ₹${rent.totalAmount}`
     );
+    console.log('[billing.ts] Full Rent Breakdown:', rent);
 
     // ── 4. MONGO LEDGER INSERTION (all 16+ fields) ────────────────────────────
     const newBooking = {
@@ -154,6 +155,7 @@ export async function createDetailedBooking(formData: DetailedLogisticsValues) {
 
     const invoiceRes = await db.collection('invoices').insertOne(invoiceDoc);
     console.log(`[billing.ts] Invoice inserted: ID ${invoiceRes.insertedId}`);
+    console.log(`[billing.ts] Invoice Amount: ₹${invoiceDoc.totalAmount} (matches rent.totalAmount: ${invoiceDoc.totalAmount === rent.totalAmount ? '✓' : '✗'})`);
 
     return {
       success: true,

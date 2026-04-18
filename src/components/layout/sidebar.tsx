@@ -1,17 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, CalendarCheck, FileText, Menu, X, Box, BarChart2, DollarSign } from 'lucide-react';
-import { useState } from 'react';
+import { Home, LayoutDashboard, Package, Users, ArrowDownToLine, ArrowUpFromLine, FileText, Menu, X, Box, BarChart2, DollarSign } from 'lucide-react';
 import LogoutButton from '@/components/features/auth/logout-button';
 
 const navItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Book Warehouse', href: '/dashboard/bookings', icon: CalendarCheck },
-  { name: 'Logistics Report', href: '/dashboard/reports', icon: BarChart2 },
-  { name: 'Revenue Distribution', href: '/dashboard/revenue-distribution', icon: DollarSign },
-  { name: 'Invoices', href: '/dashboard/invoices', icon: FileText },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Warehouse Master', href: '/dashboard/warehouses', icon: Box },
+  { name: 'Commodity Master', href: '/dashboard/commodities', icon: Package },
+  { name: 'Client Master', href: '/dashboard/clients', icon: Users },
+  { name: 'Inward Transaction', href: '/dashboard/inward', icon: ArrowDownToLine },
+  { name: 'Outward Transaction', href: '/dashboard/outward', icon: ArrowUpFromLine },
+  { name: 'Client Ledger', href: '/dashboard/ledger', icon: FileText },
+  { name: 'Revenue Split', href: '/dashboard/revenue', icon: DollarSign },
+  { name: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
 ];
 
 export default function Sidebar() {
